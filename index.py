@@ -1,68 +1,82 @@
 import pygame
-import random
 import heapq
+import random
 
 pygame.init()
 
-# Set the size of the window and board
+# Configs
 WIDTH = 600
 ROWS = 30
-INFO_HEIGHT = 70
+INFO_HEIGHT = 140
 WIN = pygame.display.set_mode((WIDTH, WIDTH + INFO_HEIGHT))
 pygame.display.set_caption("A* Pathfinding Visualization")
 
-FONT = pygame.font.SysFont("arial", 20)
+FONT = pygame.font.SysFont("arial", 18)
+SMALL_FONT = pygame.font.SysFont("arial", 14)
+
+SPEEDS = {1: 60, 2: 20, 3: 0}
+current_speed = 2
 
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GREY = (200, 200, 200)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
+GREY = (220, 220, 220)
+GREEN = (0, 200, 0)
+RED = (200, 0, 0)
+BLUE = (0, 120, 255)
 ORANGE = (255, 165, 0)
-PURPLE = (128, 0, 128)
+PURPLE = (140, 0, 140)
+HOVER = (180, 180, 255)
+BUTTON = (240, 240, 240)
+BUTTON_HOVER = (200, 200, 200)
+BUTTON_ACTIVE = (100, 180, 255)
 
+# Prevent user from doing anything else after A* is ran
+astar_ran = False  
+
+# Button
+class Button:
+    def __init__(self, x, y, w, h, text, action):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.text = text
+        self.action = action
+        self.active = False
+
+    def draw(self, win):
+        mouse = pygame.mouse.get_pos()
+        color = BUTTON_HOVER if self.rect.collidepoint(mouse) else BUTTON
+        if self.active:
+            color = BUTTON_ACTIVE
+        pygame.draw.rect(win, color, self.rect, border_radius=6)
+        pygame.draw.rect(win, BLACK, self.rect, 2, border_radius=6)
+
+        txt = FONT.render(self.text, True, BLACK)
+        win.blit(
+            txt,
+            (self.rect.centerx - txt.get_width() // 2,
+             self.rect.centery - txt.get_height() // 2)
+        )
+
+    def click(self):
+        self.action()
+
+# User's Start and End dots on the grid
 class Spot:
-    def __init__(self, row, col, width):
+    def __init__(self, row, col, size):
         self.row = row
         self.col = col
-        self.x = row * width
-        self.y = col * width
+        self.x = col * size
+        self.y = row * size
+        self.size = size
         self.color = WHITE
         self.neighbors = []
-        self.width = width
-
-    def get_pos(self):
-        return self.row, self.col
 
     def is_wall(self):
         return self.color == BLACK
 
-    def make_wall(self):
-        self.color = BLACK
-
-    def make_start(self):
-        self.color = ORANGE
-
-    def make_end(self):
-        self.color = PURPLE
-
-    def make_open(self):
-        self.color = GREEN
-
-    def make_closed(self):
-        self.color = RED
-
-    def make_path(self):
-        self.color = BLUE
-
-    def reset(self):
-        self.color = WHITE
-
-    def draw(self, win):
-        pygame.draw.rect(win, self.color,
-                         (self.x, self.y, self.width, self.width))
+    def draw(self, win, hover=False):
+        color = HOVER if hover and self.color == WHITE else self.color
+        pygame.draw.rect(win, color, (self.x, self.y, self.size, self.size))
 
     def update_neighbors(self, grid):
         self.neighbors = []
@@ -81,10 +95,15 @@ def heuristic(a, b):
 
 def reconstruct_path(came_from, current):
     steps = 0
+    path = []
     while current in came_from:
         current = came_from[current]
-        current.make_path()
+        path.append(current)
         steps += 1
+    for spot in reversed(path):
+        spot.color = BLUE
+        draw(explored=0, open_size=None)
+        pygame.time.delay(SPEEDS[current_speed])
     return steps
 
 def a_star(draw, grid, start, end):
@@ -93,57 +112,53 @@ def a_star(draw, grid, start, end):
     heapq.heappush(open_set, (0, count, start))
     came_from = {}
 
-    g_score = {spot: float("inf") for row in grid for spot in row}
-    g_score[start] = 0
-
-    f_score = {spot: float("inf") for row in grid for spot in row}
-    f_score[start] = heuristic(start.get_pos(), end.get_pos())
+    g = {spot: float("inf") for row in grid for spot in row}
+    g[start] = 0
+    f = {spot: float("inf") for row in grid for spot in row}
+    f[start] = heuristic((start.row, start.col), (end.row, end.col))
 
     open_hash = {start}
+    explored = 0
+    last_open_size = len(open_hash)
 
     while open_set:
         pygame.event.pump()
+        last_open_size = len(open_hash)
         current = heapq.heappop(open_set)[2]
         open_hash.remove(current)
+        explored += 1
 
         if current == end:
             steps = reconstruct_path(came_from, end)
-            return g_score[end], steps, True
+            return g[end], steps, explored, True, last_open_size
 
         for neighbor in current.neighbors:
-            temp_g = g_score[current] + 1
-
-            if temp_g < g_score[neighbor]:
+            temp = g[current] + 1
+            if temp < g[neighbor]:
                 came_from[neighbor] = current
-                g_score[neighbor] = temp_g
-                f_score[neighbor] = temp_g + heuristic(
-                    neighbor.get_pos(), end.get_pos())
-
+                g[neighbor] = temp
+                f[neighbor] = temp + heuristic(
+                    (neighbor.row, neighbor.col),
+                    (end.row, end.col)
+                )
                 if neighbor not in open_hash:
                     count += 1
-                    heapq.heappush(open_set, (f_score[neighbor], count, neighbor))
+                    heapq.heappush(open_set, (f[neighbor], count, neighbor))
                     open_hash.add(neighbor)
-                    neighbor.make_open()
+                    neighbor.color = GREEN
 
-        draw()
+        draw(explored, len(open_hash))
         if current != start:
-            current.make_closed()
+            current.color = RED
 
-    # If no path is found
-    return None, None, False
+        pygame.time.delay(SPEEDS[current_speed])
 
-# Grid board
+    return None, None, explored, False, last_open_size
+
+# Grid
 def make_grid():
-    grid = []
-    gap = WIDTH // ROWS
-    for i in range(ROWS):
-        grid.append([])
-        for j in range(ROWS):
-            spot = Spot(i, j, gap)
-            if random.random() < 0.25:
-                spot.make_wall()
-            grid[i].append(spot)
-    return grid
+    size = WIDTH // ROWS
+    return [[Spot(i, j, size) for j in range(ROWS)] for i in range(ROWS)]
 
 def draw_grid():
     gap = WIDTH // ROWS
@@ -151,76 +166,164 @@ def draw_grid():
         pygame.draw.line(WIN, GREY, (0, i * gap), (WIDTH, i * gap))
         pygame.draw.line(WIN, GREY, (i * gap, 0), (i * gap, WIDTH))
 
-def draw(grid, cost=None, steps=None, status=""):
+# User Interface
+final_open_size = 0
+
+def draw_info(explored, open_size, cost, steps, status):
+    pygame.draw.rect(WIN, GREY, (0, WIDTH, WIDTH, INFO_HEIGHT))
+
+    if not start:
+        msg = "Step 1: Click to place a START point."
+    elif not end:
+        msg = "Step 2: Click to place an END point."
+    else:
+        msg = "Step 3: Right-click to Generate Walls. Set a speed and Run A*."
+
+    WIN.blit(FONT.render(msg, True, RED), (10, WIDTH + 5))
+
+    size_to_display = open_size if open_size is not None else final_open_size
+    stats = f"Explored: {explored} | Open Set: {size_to_display} | Speed: {current_speed}x"
+    WIN.blit(SMALL_FONT.render(stats, True, BLACK), (10, WIDTH + 30))
+
+    if status:
+        WIN.blit(SMALL_FONT.render(status, True, RED), (10, WIDTH + 50))
+    elif cost is not None:
+        WIN.blit(SMALL_FONT.render(f"Cost: {cost} | Steps: {steps}", True, BLACK),
+                 (10, WIDTH + 50))
+
+    for btn in buttons:
+        btn.draw(WIN)
+
+def draw(explored=0, open_size=None, cost=None, steps=None, status=""):
     WIN.fill(WHITE)
+    mx, my = pygame.mouse.get_pos()
+    gap = WIDTH // ROWS
 
     for row in grid:
         for spot in row:
-            spot.draw(WIN)
+            hover = (spot.row == my // gap and spot.col == mx // gap and my < WIDTH)
+            spot.draw(WIN, hover)
 
     draw_grid()
-
-    # Controls
-    controls = "Left-click: Start/End | Space: Run | R: Reset"
-    WIN.blit(FONT.render(controls, True, BLACK), (10, WIDTH + 5))
-
-    if status:
-        WIN.blit(FONT.render(status, True, RED), (10, WIDTH + 30))
-    elif cost is not None:
-        
-        # Displays the path cost alongside the steps
-        stats = f"Optimal Path Cost: {cost}   Steps: {steps}"
-        WIN.blit(FONT.render(stats, True, BLACK), (10, WIDTH + 30))
-
+    draw_info(explored, open_size, cost, steps, status)
     pygame.display.update()
 
-def get_pos(pos):
-    gap = WIDTH // ROWS
-    y, x = pos
-    return y // gap, x // gap
+# Actions
+def run_astar():
+    global cost, steps, explored, status, final_open_size, astar_ran
+    if not start or not end:
+        status = "Place START and END first!"
+        return
 
-def main():
+    for row in grid:
+        for spot in row:
+            spot.update_neighbors(grid)
+
+    cost, steps, explored, success, final_open_size = a_star(
+        lambda e, o: draw(e, o, cost, steps, status),
+        grid, start, end
+    )
+    status = "" if success else "No possible path was found!"
+
+    # Locks the grid after running A*
+    astar_ran = True
+
+def reset_grid():
+    global grid, start, end, cost, steps, explored, status, final_open_size, astar_ran
     grid = make_grid()
     start = end = None
-    cost = steps = None
+    cost = steps = explored = 0
+    final_open_size = 0
     status = ""
+
+    # Unlocks the grid
+    astar_ran = False
+
+def clear_walls():
+
+    # Locks the wall clearing after A* is ran
+    if astar_ran:
+        return
+    for row in grid:
+        for spot in row:
+            if spot.color == BLACK:
+                spot.color = WHITE
+
+def set_speed(speed):
+    global current_speed
+    current_speed = speed
+    for btn in buttons:
+        btn.active = btn.text.startswith(str(speed))
+
+def random_walls(density=0.25):
+
+    # Locks the random walls after A* is ran
+    if astar_ran:
+        return
+    for row in grid:
+        for spot in row:
+            if spot not in (start, end):
+                spot.color = BLACK if random.random() < density else WHITE
+
+grid = make_grid()
+start = end = None
+cost = steps = explored = 0
+status = ""
+final_open_size = 0
+
+button_y = WIDTH + 95
+buttons = [
+    Button(10,  button_y, 120, 32, "Run A*", run_astar),
+    Button(140, button_y, 120, 32, "Reset", reset_grid),
+    Button(270, button_y, 150, 32, "Clear Walls", clear_walls),
+    Button(450, button_y, 40, 32, "1x", lambda: set_speed(1)),
+    Button(500, button_y, 40, 32, "2x", lambda: set_speed(2)),
+    Button(550, button_y, 40, 32, "3x", lambda: set_speed(3)),
+    Button(270, button_y - 40, 150, 32, "Generate Walls", lambda: random_walls(0.25))
+]
+
+set_speed(current_speed)
+
+def main():
+    global start, end
 
     run = True
     while run:
-        draw(grid, cost, steps, status)
+        draw(explored, None, cost, steps, status)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
 
-            if pygame.mouse.get_pressed()[0]:
-                row, col = get_pos(pygame.mouse.get_pos())
-                spot = grid[row][col]
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for btn in buttons:
+                    if btn.rect.collidepoint(event.pos):
+                        btn.click()
+                        break
 
+            mx, my = pygame.mouse.get_pos()
+            # Prevents the user from editing the grid after A* is ran
+            if my >= WIDTH or astar_ran:
+                continue
+
+            row = my * ROWS // WIDTH
+            col = mx * ROWS // WIDTH
+            if not (0 <= row < ROWS and 0 <= col < ROWS):
+                continue
+
+            spot = grid[row][col]
+
+            if pygame.mouse.get_pressed()[0]:
                 if not start and not spot.is_wall():
                     start = spot
-                    start.make_start()
+                    spot.color = ORANGE
                 elif not end and not spot.is_wall():
                     end = spot
-                    end.make_end()
+                    spot.color = PURPLE
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and start and end:
-                    for row in grid:
-                        for spot in row:
-                            spot.update_neighbors(grid)
-                    cost, steps, success = a_star(
-                        lambda: draw(grid, cost, steps, status),
-                        grid, start, end
-                    )
-                    # Displays that there are no possible paths found
-                    status = "" if success else "No possible paths were found!"
-
-                if event.key == pygame.K_r:
-                    start = end = None
-                    cost = steps = None
-                    status = ""
-                    grid = make_grid()
+            if pygame.mouse.get_pressed()[2]:
+                if spot not in (start, end):
+                    spot.color = BLACK
 
     pygame.quit()
 
