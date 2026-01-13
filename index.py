@@ -32,7 +32,8 @@ BUTTON_HOVER = (200, 200, 200)
 BUTTON_ACTIVE = (100, 180, 255)
 
 # Prevent user from doing anything else after A* is ran
-astar_ran = False  
+astar_ran = False
+
 
 # Button
 class Button:
@@ -59,6 +60,7 @@ class Button:
 
     def click(self):
         self.action()
+
 
 # User's Start and End dots on the grid
 class Spot:
@@ -89,22 +91,28 @@ class Spot:
         if self.col > 0 and not grid[self.row][self.col - 1].is_wall():
             self.neighbors.append(grid[self.row][self.col - 1])
 
+
 # A* Algo
 def heuristic(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-def reconstruct_path(came_from, current):
+
+def reconstruct_path(came_from, current, start, draw_fn):
+    """
+    Colors the final path (excluding start/end) and returns the number of BLUE tiles drawn.
+    draw_fn is expected to be a function like: draw_fn(explored, open_size)
+    """
     steps = 0
-    path = []
     while current in came_from:
         current = came_from[current]
-        path.append(current)
+        if current == start:
+            break
+        current.color = BLUE
         steps += 1
-    for spot in reversed(path):
-        spot.color = BLUE
-        draw(explored=0, open_size=None)
+        draw_fn(0, None)  # <-- FIX: positional args to match your lambda
         pygame.time.delay(SPEEDS[current_speed])
     return steps
+
 
 def a_star(draw, grid, start, end):
     count = 0
@@ -124,12 +132,13 @@ def a_star(draw, grid, start, end):
     while open_set:
         pygame.event.pump()
         last_open_size = len(open_hash)
+
         current = heapq.heappop(open_set)[2]
         open_hash.remove(current)
         explored += 1
 
         if current == end:
-            steps = reconstruct_path(came_from, end)
+            steps = reconstruct_path(came_from, end, start, draw)
             return g[end], steps, explored, True, last_open_size
 
         for neighbor in current.neighbors:
@@ -141,6 +150,7 @@ def a_star(draw, grid, start, end):
                     (neighbor.row, neighbor.col),
                     (end.row, end.col)
                 )
+
                 if neighbor not in open_hash:
                     count += 1
                     heapq.heappush(open_set, (f[neighbor], count, neighbor))
@@ -155,10 +165,12 @@ def a_star(draw, grid, start, end):
 
     return None, None, explored, False, last_open_size
 
+
 # Grid
 def make_grid():
     size = WIDTH // ROWS
     return [[Spot(i, j, size) for j in range(ROWS)] for i in range(ROWS)]
+
 
 def draw_grid():
     gap = WIDTH // ROWS
@@ -166,8 +178,10 @@ def draw_grid():
         pygame.draw.line(WIN, GREY, (0, i * gap), (WIDTH, i * gap))
         pygame.draw.line(WIN, GREY, (i * gap, 0), (i * gap, WIDTH))
 
+
 # User Interface
 final_open_size = 0
+
 
 def draw_info(explored, open_size, cost, steps, status):
     pygame.draw.rect(WIN, GREY, (0, WIDTH, WIDTH, INFO_HEIGHT))
@@ -194,6 +208,7 @@ def draw_info(explored, open_size, cost, steps, status):
     for btn in buttons:
         btn.draw(WIN)
 
+
 def draw(explored=0, open_size=None, cost=None, steps=None, status=""):
     WIN.fill(WHITE)
     mx, my = pygame.mouse.get_pos()
@@ -207,6 +222,7 @@ def draw(explored=0, open_size=None, cost=None, steps=None, status=""):
     draw_grid()
     draw_info(explored, open_size, cost, steps, status)
     pygame.display.update()
+
 
 # Actions
 def run_astar():
@@ -228,6 +244,7 @@ def run_astar():
     # Locks the grid after running A*
     astar_ran = True
 
+
 def reset_grid():
     global grid, start, end, cost, steps, explored, status, final_open_size, astar_ran
     grid = make_grid()
@@ -239,8 +256,8 @@ def reset_grid():
     # Unlocks the grid
     astar_ran = False
 
-def clear_walls():
 
+def clear_walls():
     # Locks the wall clearing after A* is ran
     if astar_ran:
         return
@@ -249,14 +266,15 @@ def clear_walls():
             if spot.color == BLACK:
                 spot.color = WHITE
 
+
 def set_speed(speed):
     global current_speed
     current_speed = speed
     for btn in buttons:
         btn.active = btn.text.startswith(str(speed))
 
-def random_walls(density=0.25):
 
+def random_walls(density=0.25):
     # Locks the random walls after A* is ran
     if astar_ran:
         return
@@ -264,6 +282,7 @@ def random_walls(density=0.25):
         for spot in row:
             if spot not in (start, end):
                 spot.color = BLACK if random.random() < density else WHITE
+
 
 grid = make_grid()
 start = end = None
@@ -273,7 +292,7 @@ final_open_size = 0
 
 button_y = WIDTH + 95
 buttons = [
-    Button(10,  button_y, 120, 32, "Run A*", run_astar),
+    Button(10, button_y, 120, 32, "Run A*", run_astar),
     Button(140, button_y, 120, 32, "Reset", reset_grid),
     Button(270, button_y, 150, 32, "Clear Walls", clear_walls),
     Button(450, button_y, 40, 32, "1x", lambda: set_speed(1)),
@@ -283,6 +302,7 @@ buttons = [
 ]
 
 set_speed(current_speed)
+
 
 def main():
     global start, end
@@ -326,5 +346,6 @@ def main():
                     spot.color = BLACK
 
     pygame.quit()
+
 
 main()
