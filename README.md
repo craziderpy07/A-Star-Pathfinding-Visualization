@@ -93,7 +93,3 @@ A-Star-Pathfinding-Visualization/
 - Visualize graph traversal and shortest-path reconstruction.
 - Examine how obstacles influence pathfinding performance.
 - Develop interactive graphical applications using Python and Pygame.
-
-## Author
-
-Developed by Teresa To.
