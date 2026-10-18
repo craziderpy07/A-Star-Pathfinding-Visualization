@@ -6,6 +6,7 @@ The A* Pathfinding Visualization is an interactive application developed using P
 <p align="center">
 <img width="602" height="772" alt="image" src="https://github.com/user-attachments/assets/9370700e-4365-474a-906c-d5a7016abd30" />
 </p>
+
 ## Features
 
 - **Interactive Grid:** Configure starting and destination points within a 30 × 30 grid.
