@@ -2,7 +2,9 @@
 
 ## Overview
 
-The A* Pathfinding Visualization is an interactive application developed using Python and Pygame that implements the A* search algorithm to identify and visualize the shortest path between two points on a grid containing obstacles. The application enables users to configure starting and destination points, generate obstacles, and adjust visualization speeds. Through real-time visualization, the project demonstrates heuristic-based search, node exploration, and shortest-path determination.
+The A* Pathfinding Visualization is an interactive application developed using Python and Pygame that implements the A* search algorithm to identify and visualize the shortest path between two points on a grid containing obstacles. The application enables users to configure starting and destination points, generate obstacles, and adjust visualization speeds. Through real-time visualization, the project demonstrates heuristic-based search, node exploration, and shortest-path determination.  
+
+<img width="602" height="772" alt="image" src="https://github.com/user-attachments/assets/9370700e-4365-474a-906c-d5a7016abd30" />
 
 ## Features
 
